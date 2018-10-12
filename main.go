@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	bind        = flag.String("b", "127.0.0.1:8080", "Bind address")
+	bind        = flag.String("a", "127.0.0.1:8080", "Bind address")
 	verbose     = flag.Bool("v", false, "Show access log")
 	credentials = flag.String("c", "", "The path to the keyfile. If not present, client will use your default application credentials.")
+	bucket      = flag.String("b", "", "Bucket to mount. If not present, will use the first part of the path as the bucket name")
 )
 
 var (
@@ -100,7 +101,13 @@ func wrapper(fn func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
 
 func proxy(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	obj := client.Bucket(params["bucket"]).Object(params["object"])
+	var theBucket string
+	if *bucket == "" {
+		theBucket = params["bucket"]
+	} else {
+		theBucket = *bucket
+	}
+	obj := client.Bucket(theBucket).Object(params["object"])
 	attr, err := obj.Attrs(ctx)
 	if err != nil {
 		handleError(w, err)
@@ -134,7 +141,11 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/{bucket:[0-9a-zA-Z-_]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+	if *bucket == "" {
+		r.HandleFunc("/{bucket:[0-9a-zA-Z-_]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+	} else {
+		r.HandleFunc("/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+	}
 
 	log.Printf("[service] listening on %s", *bind)
 	if err := http.ListenAndServe(*bind, r); err != nil {
