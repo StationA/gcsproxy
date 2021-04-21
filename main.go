@@ -11,6 +11,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 	"google.golang.org/api/option"
 )
 
@@ -28,6 +29,7 @@ var (
 
 func handleError(w http.ResponseWriter, err error) {
 	if err != nil {
+		log.Printf("Error handling request: %s", err)
 		if err == storage.ErrObjectNotExist {
 			http.Error(w, err.Error(), http.StatusNotFound)
 		} else {
@@ -141,10 +143,12 @@ func main() {
 	}
 
 	r := mux.NewRouter()
+	var handler = wrapper(proxy)
+	handler = cors.Default().Handler(handler).ServeHTTP
 	if *bucket == "" {
-		r.HandleFunc("/{bucket:[0-9a-zA-Z-_]+}/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+		r.HandleFunc("/{bucket:[0-9a-zA-Z-_]+}/{object:.*}", handler).Methods("GET", "HEAD")
 	} else {
-		r.HandleFunc("/{object:.*}", wrapper(proxy)).Methods("GET", "HEAD")
+		r.HandleFunc("/{object:.*}", handler).Methods("GET", "HEAD")
 	}
 
 	log.Printf("[service] listening on %s", *bind)
