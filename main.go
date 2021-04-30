@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -109,7 +110,11 @@ func proxy(w http.ResponseWriter, r *http.Request) {
 	} else {
 		theBucket = *bucket
 	}
-	obj := client.Bucket(theBucket).Object(params["object"])
+	var objName = params["object"]
+	if strings.HasSuffix(objName, "/") {
+		objName += "index.html"
+	}
+	obj := client.Bucket(theBucket).Object(objName)
 	attr, err := obj.Attrs(ctx)
 	if err != nil {
 		handleError(w, err)
